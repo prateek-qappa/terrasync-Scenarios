@@ -1,0 +1,9 @@
+# Example terraform.tfvars for TerraSync testing
+# Copy this file to terraform.tfvars and update values
+
+aws_region      = "us-east-1"
+ami_id          = "ami-0c55b159cbfafe1f0"  # Update for your region
+instance_type   = "t3.small"
+bucket_name     = "terrasync-test-bucket-unique-12345"  # Must be globally unique
+environment     = "development"
+enable_monitoring = false
