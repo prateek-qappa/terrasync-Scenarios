@@ -1,13 +1,13 @@
-# TerraSync Test Fixture - Basic AWS Infrastructure
-# This file creates test resources to demonstrate drift detection
-
 terraform {
-  required_version = ">= 1.0"
+  required_version = ">= 1.5.0"
+
   backend "s3" {
-    bucket = "test1-qappalabs"
-    key    = "test"
-    region = "ap-south-1"
+    bucket  = "dec30-qappa"
+    key     = "global/terraform.tfstate"
+    region  = "ap-south-1"
+    encrypt = true
   }
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -17,40 +17,32 @@ terraform {
 }
 
 provider "aws" {
-  region = var.aws_region
-
-  # Using skip_credentials_validation for testing without real AWS access
-  skip_credentials_validation = true
-  skip_requesting_account_id  = true
-  skip_metadata_api_check     = true
-
-  # Endpoints can be configured for LocalStack or mocked testing
-  # endpoints {
-  #   ec2 = "http://localhost:4566"
-  #   s3  = "http://localhost:4566"
-  # }
+  region = "ap-south-1"
 }
 
-# Use Default VPC (no VPC creation allowed)
-data "aws_vpc" "default" {
-  default = true
+variable "ami_id" {
+  description = "Ubuntu 22.04 LTS AMI for ap-south-1"
+  default     = "ami-03f4878755434977f"
 }
 
-# Use Default Subnet (no subnet creation allowed)
-data "aws_subnet" "default" {
-  vpc_id            = data.aws_vpc.default.id
-  availability_zone = "${var.aws_region}a"
-  default_for_az    = true
+variable "instance_type" {
+  default = "t2.micro"
 }
 
-# Security Group
-resource "aws_security_group" "web" {
+resource "aws_security_group" "web_sg" {
   name        = "terrasync-web-sg"
-  description = "Security group for web servers"
-  vpc_id      = data.aws_vpc.default.id
+  description = "Allow SSH, HTTP, HTTPS"
 
   ingress {
-    description = "HTTP from anywhere"
+    description = "SSH"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "HTTP"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
@@ -58,7 +50,7 @@ resource "aws_security_group" "web" {
   }
 
   ingress {
-    description = "HTTPS from anywhere"
+    description = "HTTPS"
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
@@ -66,7 +58,6 @@ resource "aws_security_group" "web" {
   }
 
   egress {
-    description = "All outbound traffic"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -74,60 +65,51 @@ resource "aws_security_group" "web" {
   }
 
   tags = {
-    Name        = "terrasync-web-sg"
-    Environment = "development"
+    Name    = "terrasync-web-sg"
+    Project = "terrasync"
   }
 }
 
-# EC2 Instance
-resource "aws_instance" "web" {
-  ami           = var.ami_id
-  instance_type = var.instance_type
-  subnet_id     = data.aws_subnet.default.id
-
-  vpc_security_group_ids = [aws_security_group.web.id]
-
-  root_block_device {
-    volume_size = 20
-    volume_type = "gp3"
-  }
+resource "aws_instance" "terrasync_1" {
+  ami                    = var.ami_id
+  instance_type          = var.instance_type
+  vpc_security_group_ids = [aws_security_group.web_sg.id]
 
   tags = {
-    Name        = "terrasync-web-server"
-    Environment = "development"
-    Application = "web"
+    Name    = "terrasync-1"
+    Role    = "web"
+    Project = "terrasync"
   }
 }
 
-# S3 Bucket
-resource "aws_s3_bucket" "data" {
-  bucket = var.bucket_name
+resource "aws_instance" "terrasync_2" {
+  ami                    = var.ami_id
+  instance_type          = var.instance_type
+  vpc_security_group_ids = [aws_security_group.web_sg.id]
 
   tags = {
-    Name        = "terrasync-data-bucket"
-    Environment = "development"
-    Purpose     = "application-data"
-  }
-}
-# S3 Bucket Versioning
-resource "aws_s3_bucket_versioning" "data" {
-  bucket = aws_s3_bucket.data.id
-
-  versioning_configuration {
-    status = "Enabled"
+    Name    = "terrasync-2"
+    Role    = "web"
+    Project = "terrasync"
   }
 }
 
-resource "aws_s3_bucket" "state_bucket" {
+resource "aws_s3_bucket" "bucket_1" {
+  bucket = "terrasync-test-bucket-1-12345"
 
+  tags = {
+    Name    = "terrasync-bucket-1"
+    Project = "terrasync"
+    Purpose = "testing"
+  }
 }
 
-# S3 Bucket Public Access Block
-resource "aws_s3_bucket_public_access_block" "data" {
-  bucket = aws_s3_bucket.data.id
+resource "aws_s3_bucket" "bucket_2" {
+  bucket = "terrasync-test-bucket-2-12345"
 
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
+  tags = {
+    Name    = "terrasync-bucket-2"
+    Project = "terrasync"
+    Purpose = "testing"
+  }
 }
