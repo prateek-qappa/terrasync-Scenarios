@@ -2,7 +2,7 @@ terraform {
   required_version = ">= 1.5.0"
 
   backend "s3" {
-    bucket  = "dec30-qappa"
+    bucket  = "bucket-qappa"
     key     = "global/terraform.tfstate"
     region  = "ap-south-1"
     encrypt = true
